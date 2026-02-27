@@ -1,6 +1,27 @@
+version: 1
 actions:
-  - move
-  - gather
-  - craft
-  - trade
-  - rest
+  move:
+    required_params:
+      - destination
+    optional_params:
+      - pace
+  gather:
+    required_params:
+      - resource
+    optional_params:
+      - amount
+  craft:
+    required_params:
+      - recipe
+    optional_params:
+      - quantity
+  trade:
+    required_params:
+      - partner_id
+      - offer
+      - request
+    optional_params: []
+  rest:
+    required_params: []
+    optional_params:
+      - duration_hours

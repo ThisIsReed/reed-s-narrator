@@ -67,3 +67,43 @@
   - `pytest tests/unit/core -q` 通过（`13 passed`）。
   - `pytest tests/unit -q` 通过（`59 passed`）。
 - 说明：按本轮范围决策，`GlobalClock` 暂不提供 `tick -> datetime` 映射，仅负责 tick 管理。
+
+### WP-06 LLM 抽象与多 Provider 路由
+- 新增 LLM Provider 抽象基类 [`src/narrator/llm/base.py`](../src/narrator/llm/base.py)：
+  - `LLMProvider[T]` 泛型抽象基类（`async` 接口）；
+  - `LLMRequest`/`LLMResponse` 请求响应模型；
+  - `ProviderError`、`ProviderUnavailableError`、`ProviderValidationError` 异常体系；
+  - `health_check()` 健康检查接口；
+  - `complete()` 标准补全接口；
+  - `complete_structured()` 结构化输出接口。
+- 新增结构化响应 Schema [`src/narrator/llm/schemas.py`](../src/narrator/llm/schemas.py)：
+  - `StructuredResponse` 基础响应模型；
+  - `IntentResponse` 意图生成响应（`intent + flavor_text + parameters`）；
+  - `DecisionResponse` 裁定响应（`verdict + reason + outcome`）；
+  - `HealthCheckResponse` 健康检查响应；
+  - `validate_structured_response()` 通用校验器。
+- 新增 OpenAI Provider 实现 [`src/narrator/llm/openai.py`](../src/narrator/llm/openai.py)：
+  - 支持 `chat/completions` 接口；
+  - JSON Mode 结构化输出（`response_format: json_object`）；
+  - Token 使用量统计返回。
+- 新增 Anthropic Provider 实现 [`src/narrator/llm/anthropic.py`](../src/narrator/llm/anthropic.py)：
+  - 支持 Messages API（`/v1/messages`）；
+  - System Prompt + JSON 约束结构化输出；
+  - Input/Output Tokens 统计返回。
+- 新增 Ollama Provider 实现 [`src/narrator/llm/ollama.py`](../src/narrator/llm/ollama.py)：
+  - 支持 `/api/generate` 接口；
+  - JSON Mode（`format: json`）结构化输出；
+  - Prompt/Completion Token 统计返回。
+- 新增 Provider Router [`src/narrator/llm/router.py`](../src/narrator/llm/router.py)：
+  - `LLMRouter` 多 Provider 管理与路由；
+  - `register_provider()` 动态注册；
+  - `set_default_provider()` 切换默认 Provider；
+  - `health_check_all()` 批量健康检查；
+  - `from_config()` 从配置字典批量初始化。
+- 完成模块导出 [`src/narrator/llm/__init__.py`](../src/narrator/llm/__init__.py)。
+- 新增 WP-06 单测：
+  - [`tests/unit/llm/test_provider.py`](../tests/unit/llm/test_provider.py)：覆盖 Schema 校验、请求响应模型、异常体系。
+  - [`tests/unit/llm/test_router.py`](../tests/unit/llm/test_router.py)：覆盖 Provider 注册、路由、健康检查、完成接口。
+- 验证结果：
+  - `pytest tests/unit/llm -q` 通过（`34 passed`）。
+  - `pytest tests/unit -q` 通过（`59 passed`）。

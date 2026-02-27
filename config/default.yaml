@@ -1,0 +1,42 @@
+simulation:
+  tick_unit_hours: 1
+  max_ticks: 10000
+  checkpoint_interval: 100
+
+narrator:
+  max_retry: 3
+  instant_mode_max_rounds: 3
+
+spotlight:
+  weights:
+    geo: 0.3
+    relation: 0.2
+    availability: 0.15
+    narrative_importance: 0.25
+    random_noise: 0.1
+  threshold_active: 0.7
+  threshold_passive: 0.3
+
+phenology:
+  enabled_effects:
+    - winter_march_penalty
+    - rain_disease_boost
+    - famine_food_reduction
+
+llm:
+  default_provider: openai
+  providers:
+    openai:
+      model: gpt-4o
+      api_key: ${OPENAI_API_KEY}
+      max_tokens: 2048
+    anthropic:
+      model: claude-sonnet-4-20250514
+      api_key: ${ANTHROPIC_API_KEY}
+    ollama:
+      model: llama3
+      base_url: http://localhost:11434
+
+persistence:
+  db_path: data/narrator.db
+  enable_wal: true

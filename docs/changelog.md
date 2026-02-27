@@ -38,3 +38,32 @@
   - [`tests/unit/test_models.py`](../tests/unit/test_models.py)：覆盖非法枚举值、非法字段、契约结构有效性。
   - [`tests/unit/agents/test_intent.py`](../tests/unit/agents/test_intent.py)：覆盖白名单放行与非法动作/参数拦截。
 - 验证结果：`pytest tests/unit -q` 通过（`12 passed`）。
+
+### WP-03 Simulation Core 确定性内核
+- 实现 `GlobalClock` [`src/narrator/core/clock.py`](../src/narrator/core/clock.py)：
+  - `current_tick/advance/peek` 接口；
+  - tick 单调推进；
+  - 非法 `start_tick/step` 显式抛错。
+- 实现 `SeedManager` [`src/narrator/core/seed.py`](../src/narrator/core/seed.py)：
+  - 全局 seed 管理；
+  - 基于稳定哈希（`sha256`）的子种子分配；
+  - `rng(label)` 可复现实例化随机序列。
+- 实现 `InterruptManager` [`src/narrator/core/interrupt.py`](../src/narrator/core/interrupt.py)：
+  - `InterruptSignal` 模型与 `InterruptRule` 协议；
+  - 规则注册与按注册顺序聚合中断信号；
+  - 规则异常不吞错，直接外抛。
+- 实现 `RuleEngine` [`src/narrator/core/rule_engine.py`](../src/narrator/core/rule_engine.py)：
+  - `RuleContext`、`RuleExecutionRecord`、`RuleEngineResult`；
+  - 规则注册、按 `priority + 注册顺序` 稳定执行；
+  - 命中与未命中规则均产出审计日志；
+  - 结果合并顺序稳定。
+- 更新导出 [`src/narrator/core/__init__.py`](../src/narrator/core/__init__.py)。
+- 新增 WP-03 单测：
+  - [`tests/unit/core/test_clock.py`](../tests/unit/core/test_clock.py)
+  - [`tests/unit/core/test_seed.py`](../tests/unit/core/test_seed.py)
+  - [`tests/unit/core/test_interrupt.py`](../tests/unit/core/test_interrupt.py)
+  - [`tests/unit/core/test_rule_engine.py`](../tests/unit/core/test_rule_engine.py)
+- 验证结果：
+  - `pytest tests/unit/core -q` 通过（`13 passed`）。
+  - `pytest tests/unit -q` 通过（`59 passed`）。
+- 说明：按本轮范围决策，`GlobalClock` 暂不提供 `tick -> datetime` 映射，仅负责 tick 管理。

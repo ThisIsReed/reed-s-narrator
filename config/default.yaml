@@ -24,17 +24,19 @@ phenology:
     - famine_food_reduction
 
 llm:
-  default_provider: openai
+  default_provider: ${LLM_DEFAULT_PROVIDER}
   providers:
     openai:
-      model: gpt-4o
+      model_name: ${OPENAI_MODEL_NAME}
       api_key: ${OPENAI_API_KEY}
+      base_url: ${OPENAI_BASE_URL}
       max_tokens: 2048
     anthropic:
-      model: claude-sonnet-4-20250514
+      model_name: ${ANTHROPIC_MODEL_NAME}
       api_key: ${ANTHROPIC_API_KEY}
+      base_url: ${ANTHROPIC_BASE_URL}
     ollama:
-      model: llama3
+      model_name: llama3
       base_url: http://localhost:11434
 
 persistence:

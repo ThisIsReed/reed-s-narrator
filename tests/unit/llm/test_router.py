@@ -185,3 +185,40 @@ def test_provider_not_configured_error_message() -> None:
     """Test ProviderNotConfiguredError message."""
     error = ProviderNotConfiguredError("provider 'test' not configured")
     assert "provider 'test' not configured" in str(error)
+
+
+def test_router_from_config_uses_model_name_and_base_url() -> None:
+    """Test provider construction from config with custom endpoints."""
+    router = LLMRouter[StructuredResponse].from_config(
+        {
+            "default_provider": "openai",
+            "providers": {
+                "openai": {
+                    "model_name": "proxy-openai-model",
+                    "api_key": "openai-secret",
+                    "base_url": "https://openai.example.com/v1",
+                    "max_tokens": 333,
+                },
+                "anthropic": {
+                    "model_name": "proxy-anthropic-model",
+                    "api_key": "anthropic-secret",
+                    "base_url": "https://anthropic.example.com",
+                    "max_tokens": 444,
+                },
+                "ollama": {
+                    "model_name": "llama3",
+                    "base_url": "http://localhost:11434",
+                },
+            },
+        }
+    )
+
+    openai_provider = router.get_provider("openai")
+    anthropic_provider = router.get_provider("anthropic")
+    ollama_provider = router.get_provider("ollama")
+
+    assert openai_provider.model == "proxy-openai-model"
+    assert openai_provider._base_url == "https://openai.example.com/v1"
+    assert anthropic_provider.model == "proxy-anthropic-model"
+    assert anthropic_provider._base_url == "https://anthropic.example.com"
+    assert ollama_provider.model == "llama3"

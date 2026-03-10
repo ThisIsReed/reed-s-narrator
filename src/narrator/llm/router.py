@@ -161,8 +161,9 @@ class LLMRouter(Generic[T]):
             router.register_provider(
                 "openai",
                 OpenAIProvider(
-                    model=openai_config["model"],
+                    model=openai_config["model_name"],
                     api_key=openai_config["api_key"],
+                    base_url=openai_config["base_url"],
                     max_tokens=openai_config.get("max_tokens", 1024),
                 ),
                 openai_config,
@@ -173,8 +174,9 @@ class LLMRouter(Generic[T]):
             router.register_provider(
                 "anthropic",
                 AnthropicProvider(
-                    model=anthropic_config["model"],
+                    model=anthropic_config["model_name"],
                     api_key=anthropic_config["api_key"],
+                    base_url=anthropic_config["base_url"],
                     max_tokens=anthropic_config.get("max_tokens", 1024),
                 ),
                 anthropic_config,
@@ -185,7 +187,7 @@ class LLMRouter(Generic[T]):
             router.register_provider(
                 "ollama",
                 OllamaProvider(
-                    model=ollama_config["model"],
+                    model=ollama_config["model_name"],
                     base_url=ollama_config.get("base_url", "http://localhost:11434"),
                     num_predict=ollama_config.get("num_predict", 1024),
                 ),

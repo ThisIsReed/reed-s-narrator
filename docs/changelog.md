@@ -47,6 +47,31 @@
   - `pytest tests/unit -q` 通过（`66 passed`）。
   - `pytest tests/integration -q` 通过（`4 passed`）。
 
+### WP-08 Agent 层（意图/DM/重试）
+- 实现角色意图生成代理 [`src/narrator/agents/character_agent.py`](../src/narrator/agents/character_agent.py)：
+  - 基于已存在的 `IntentResponse` 结构化协议调用 LLM；
+  - 将 `Character + CharacterKnowledgeContext` 打包为稳定输入；
+  - 输出统一落回 `IntentPayload`，并强制经过动作白名单校验。
+- 实现无状态结算代理 [`src/narrator/agents/dm_agent.py`](../src/narrator/agents/dm_agent.py)：
+  - 新增 `SettlementContext`，显式携带 `tick`、角色、世界状态、规则摘要与 RNG seed；
+  - 基于 `DecisionResponse` 输出 `ActionResult`；
+  - 将 DM 裁定理由写入 `ActionResult.verdict_reason`，并解析结构化 `state_changes`。
+- 实现重试与 fallback 编排 [`src/narrator/agents/retry.py`](../src/narrator/agents/retry.py)：
+  - 新增 `NarratorDecision`、`RetryAttempt`、`RetryOutcome` 等运行时模型；
+  - 串联 `CharacterAgent -> NarratorJudge -> DMAgent` 的实际执行链；
+  - 对非法意图与 Narrator 拒绝均执行显式重试；
+  - 达到 `max_retry` 后走 fallback，并在最终结果中标记 `verdict=FALLBACK`、`is_fallback=true`、`fallback_reason`、`retry_count`。
+- 更新 Agent 导出 [`src/narrator/agents/__init__.py`](../src/narrator/agents/__init__.py)，对外暴露 WP-08 所需运行时接口。
+- 扩展动作结果模型 [`src/narrator/models/action.py`](../src/narrator/models/action.py)，新增 `verdict_reason` 以保留 DM / Narrator 的结构化裁定理由。
+- 新增测试：
+  - [`tests/unit/agents/test_runtime.py`](../tests/unit/agents/test_runtime.py)：覆盖意图生成、DM 结构化结算、拒绝后重试成功、非法意图触发 fallback。
+  - [`tests/integration/test_agent_flow.py`](../tests/integration/test_agent_flow.py)：覆盖 agent 执行链结果写入 `action_log` 后可完整回读。
+- 验证结果：
+  - `pytest tests/unit/agents/test_runtime.py -q` 通过（`4 passed`）。
+  - `pytest tests/integration/test_agent_flow.py -q` 通过（`1 passed`）。
+  - `pytest tests/unit -q` 通过（`76 passed`）。
+  - `pytest tests/integration -q` 通过（`5 passed`）。
+
 ## 2026-02-27
 
 ### WP-01 项目基线与配置体系

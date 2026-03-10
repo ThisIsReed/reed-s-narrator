@@ -29,6 +29,7 @@ class StateChange(DomainModel):
 class ActionResult(DomainModel):
     action: Action
     verdict: Verdict
+    verdict_reason: str | None = None
     state_changes: tuple[StateChange, ...] = ()
     retry_count: int = Field(default=0, ge=0)
     is_fallback: bool = False

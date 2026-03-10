@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-03-10
+
+### WP-05 物候系统（硬约束）
+- 新增物候领域模型 [`src/narrator/models/phenology.py`](../src/narrator/models/phenology.py)，定义 `PhenologyState`，将季节、气候、节庆与 `day_of_year/season_progress` 作为不可变状态纳入世界状态。
+- 扩展 [`src/narrator/models/world.py`](../src/narrator/models/world.py)，新增 `phenology` 字段，使物候更新进入正式状态结算，而非仅停留在文案层。
+- 实现物候日历 [`src/narrator/phenology/calendar.py`](../src/narrator/phenology/calendar.py)：
+  - 固定 120 tick 年历与四季映射；
+  - `tick -> season/climate/festival` 的确定性转换；
+  - 产出可直接落库的 `PhenologySnapshot/PhenologyState`。
+- 实现规则注册表 [`src/narrator/phenology/registry.py`](../src/narrator/phenology/registry.py)，按 `priority + 注册顺序` 稳定执行物候硬约束，并输出完整审计记录。
+- 实现物候效果模块 [`src/narrator/phenology/effects.py`](../src/narrator/phenology/effects.py)：
+  - 严冬行军惩罚：降低 `resources.military_readiness`；
+  - 雨季疾病提升：提高 `resources.disease_pressure`；
+  - 歉收降粮：降低 `resources.grain_stock`；
+  - 每次物候更新至少落入一个数值字段变更：`phenology.day_of_year`。
+- 完成模块导出 [`src/narrator/phenology/__init__.py`](../src/narrator/phenology/__init__.py) 与模型导出 [`src/narrator/models/__init__.py`](../src/narrator/models/__init__.py)。
+- 新增 WP-05 单测：
+  - [`tests/unit/phenology/test_calendar.py`](../tests/unit/phenology/test_calendar.py)
+  - [`tests/unit/phenology/test_effects.py`](../tests/unit/phenology/test_effects.py)
+- 验证结果：
+  - `pytest tests/unit/phenology -q` 通过（`6 passed`）。
+  - `pytest tests/unit -q` 通过（`65 passed`）。
+
 ## 2026-02-27
 
 ### WP-01 项目基线与配置体系

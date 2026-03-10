@@ -8,6 +8,7 @@ from narrator.models.base import DomainModel
 from narrator.models.character import Character
 from narrator.models.enums import Granularity
 from narrator.models.event import Event
+from narrator.models.phenology import PhenologyState
 
 
 class WorldState(DomainModel):
@@ -18,6 +19,7 @@ class WorldState(DomainModel):
     events: dict[str, Event] = Field(default_factory=dict)
     resources: dict[str, float] = Field(default_factory=dict)
     flags: dict[str, bool] = Field(default_factory=dict)
+    phenology: PhenologyState = Field(default_factory=PhenologyState)
 
     @model_validator(mode="after")
     def validate_character_keys(self) -> "WorldState":

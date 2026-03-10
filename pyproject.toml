@@ -24,6 +24,7 @@ dev = [
 
 [project.scripts]
 narrator-run = "narrator.main:main"
+narrator-demo = "narrator.demo:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

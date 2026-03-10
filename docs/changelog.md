@@ -121,6 +121,39 @@
   - `pytest tests/integration -q` 通过（`8 passed`）。
   - `pytest tests/unit -q` 通过（`79 passed`）。
 
+### WP-13 主循环业务闭环强化
+- 完成 `WP-13.1` 主循环阶段化重构：
+  - 新增阶段结果模型 [`src/narrator/orchestrator/stages.py`](../src/narrator/orchestrator/stages.py) 与阶段 helper [`src/narrator/orchestrator/tick_helpers.py`](../src/narrator/orchestrator/tick_helpers.py)；
+  - 重构 [`src/narrator/orchestrator/narrator_ctrl.py`](../src/narrator/orchestrator/narrator_ctrl.py)，将单 tick 固定为 `clock -> phenology -> event_pool -> granularity -> knowledge_update -> spotlight -> active_agent -> passive_update -> persistence -> replay_audit`；
+  - `TickResult` 现可返回完整阶段审计，避免主循环继续堆叠在单一线性方法里。
+- 完成 `WP-13.2` 物候与世界状态联动接线：
+  - 将 [`src/narrator/phenology/effects.py`](../src/narrator/phenology/effects.py) 的 `apply_phenology()` 正式接入主循环；
+  - 每个 tick 的 `phenology.state_changes + audit_log` 进入统一阶段结果，并随 `world_snapshot/checkpoint` 一起持久化。
+- 完成 `WP-13.3` 知识传播正式落地：
+  - 扩展 [`src/narrator/models/world.py`](../src/narrator/models/world.py)，新增 `facts`、`beliefs` 与 `pending_propagation`，使动态知识和传播队列进入可 checkpoint 的正式世界状态；
+  - 引入 [`src/narrator/models/knowledge.py`](../src/narrator/models/knowledge.py) 与 [`src/narrator/knowledge/runtime_helpers.py`](../src/narrator/knowledge/runtime_helpers.py)；
+  - 扩展 [`src/narrator/knowledge/propagation.py`](../src/narrator/knowledge/propagation.py)，新增：
+    - `load_world_state()`：从 checkpoint/snapshot 恢复知识运行态；
+    - `ingest_events()`：把事件池产物转成受可见性约束的事实；
+    - `execute_pending()`：执行成熟传播任务；
+    - `capture_action()`：把 ACTIVE 角色行动结论沉淀为 belief 并调度延迟传播任务。
+- 完成 `WP-13.4` Agent 裁定与结算统一化：
+  - ACTIVE 角色执行现统一走“上下文构建 -> runtime/裁定 -> `ActionResult` 状态回写 -> action belief 生成 -> 扩散调度 -> action_log 落库”链路；
+  - PASSIVE/DORMANT 角色继续由 spotlight 三态驱动，并在阶段审计中显式保留被动/休眠角色清单，避免非 ACTIVE 角色在主流程中不可见。
+- 完成 `WP-13.5` 闭环验收与 demo 场景：
+  - 新增 tick 审计仓储 [`src/narrator/persistence/tick_audit.py`](../src/narrator/persistence/tick_audit.py) 与迁移 [`src/narrator/persistence/migrations/002_tick_audit.sql`](../src/narrator/persistence/migrations/002_tick_audit.sql)，记录每个 tick 的阶段审计、行动角色与传播队列；
+  - 新增端到端闭环测试 [`tests/integration/test_wp13_closed_loop.py`](../tests/integration/test_wp13_closed_loop.py)，覆盖“物候影响 -> 事件事实 -> 知识传播 -> ACTIVE 裁定 -> 状态回写 -> checkpoint 恢复 -> replay 一致性”；
+  - 更新 [`src/narrator/demo.py`](../src/narrator/demo.py) 展示阶段链与待传播任务数量，demo 不再只展示孤立能力点。
+- 新增/更新测试：
+  - [`tests/unit/knowledge/test_stores.py`](../tests/unit/knowledge/test_stores.py)：补充传播任务调度与成熟执行单测；
+  - [`tests/integration/replay_support.py`](../tests/integration/replay_support.py)：将长程 replay 断言升级为兼容事件事实闭环；
+  - [`tests/integration/test_demo.py`](../tests/integration/test_demo.py)：校验 demo 输出已展示阶段化主循环。
+- 验证结果：
+  - `pytest tests/unit/knowledge/test_stores.py -q` 通过（`6 passed`）。
+  - `pytest tests/integration/test_wp13_closed_loop.py -q` 通过（`1 passed`）。
+  - `pytest tests/unit -q` 通过（`82 passed`）。
+  - `pytest tests/integration -q` 通过（`10 passed`）。
+
 ## 2026-02-27
 
 ### WP-01 项目基线与配置体系

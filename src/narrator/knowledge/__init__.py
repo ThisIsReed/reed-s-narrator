@@ -6,6 +6,7 @@ from narrator.knowledge.propagation import (
     CharacterKnowledgeContext,
     KnowledgeAssembler,
     KnowledgeEntry,
+    KnowledgeMutation,
     PropagationTask,
 )
 
@@ -18,5 +19,6 @@ __all__ = [
     "FactVisibility",
     "KnowledgeAssembler",
     "KnowledgeEntry",
+    "KnowledgeMutation",
     "PropagationTask",
 ]

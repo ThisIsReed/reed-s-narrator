@@ -2,7 +2,8 @@
 
 from narrator.orchestrator.event_pool import EventGenerator, EventPool, EventPoolSnapshot
 from narrator.orchestrator.granularity import GranularityDecision, GranularityPlanner
-from narrator.orchestrator.narrator_ctrl import NarratorController, TickResult
+from narrator.orchestrator.narrator_ctrl import NarratorController
+from narrator.orchestrator.stages import TickResult, TickStageResult
 from narrator.orchestrator.spotlight import (
     SpotlightAssignments,
     SpotlightDirector,
@@ -20,4 +21,5 @@ __all__ = [
     "SpotlightDirector",
     "SpotlightEntry",
     "TickResult",
+    "TickStageResult",
 ]

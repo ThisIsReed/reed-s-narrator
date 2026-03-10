@@ -11,7 +11,15 @@ from narrator.knowledge import (
     FactVisibility,
     KnowledgeAssembler,
 )
-from narrator.models import Character, StateMode
+from narrator.models import (
+    Action,
+    ActionResult,
+    Character,
+    StateChange,
+    StateMode,
+    Verdict,
+    WorldState,
+)
 
 
 def build_character(character_id: str, location_id: str) -> Character:
@@ -87,3 +95,90 @@ def test_plan_diffusion_rejects_negative_delay() -> None:
 
     with pytest.raises(ValueError):
         assembler.plan_diffusion(belief, target_character_id="ally", delay_ticks=-1)
+
+
+def test_capture_action_schedules_peer_diffusion_and_persists_payloads() -> None:
+    assembler = KnowledgeAssembler(FactStore(), BeliefStore())
+    world = WorldState(
+        tick=1,
+        seed=9,
+        characters={
+            "hero": build_character("hero", "camp"),
+            "guard": build_character("guard", "camp"),
+        },
+        facts={
+            "event:alarm-1": Fact(
+                id="event:alarm-1",
+                tick_created=1,
+                content="alarm",
+            ).model_dump(mode="json")
+        },
+    )
+    assembler.load_world_state(world)
+
+    updated_world, mutation = assembler.capture_action(
+        world,
+        ActionResult(
+            action=Action(
+                character_id="hero",
+                action_type="investigate",
+                parameters={},
+                source_event_id="alarm-1",
+            ),
+            verdict=Verdict.APPROVED,
+            state_changes=(
+                StateChange(
+                    path="resources.progress",
+                    before=0.0,
+                    after=1.0,
+                    reason="resolve alarm",
+                ),
+            ),
+        ),
+        tick=1,
+    )
+
+    assert mutation.beliefs[0].belief_id == "action:1:hero"
+    assert updated_world.pending_propagation[0].target_character_id == "guard"
+    assert updated_world.beliefs["hero"][0]["belief_id"] == "action:1:hero"
+
+
+def test_execute_pending_materializes_rumor_for_target_context() -> None:
+    assembler = KnowledgeAssembler(FactStore(), BeliefStore())
+    task = assembler.plan_diffusion(
+        Belief(
+            character_id="hero",
+            belief_id="action:1:hero",
+            summary="hero:investigate:approved",
+            acquired_tick=1,
+            fact_id="event:alarm-1",
+            source_type="direct",
+        ),
+        target_character_id="guard",
+        delay_ticks=1,
+    )
+    world = WorldState(
+        tick=1,
+        seed=9,
+        characters={
+            "hero": build_character("hero", "camp"),
+            "guard": build_character("guard", "camp"),
+        },
+        facts={
+            "event:alarm-1": Fact(
+                id="event:alarm-1",
+                tick_created=1,
+                content="alarm",
+                visibility=FactVisibility(scope="private", character_ids=("hero",)),
+            ).model_dump(mode="json")
+        },
+        pending_propagation=(task,),
+    )
+    assembler.load_world_state(world)
+
+    updated_world, mutation = assembler.execute_pending(world, tick=2)
+    context = assembler.build_context(build_character("guard", "camp"), tick=2)
+
+    assert updated_world.pending_propagation == ()
+    assert mutation.beliefs[0].belief_id == "action:1:hero"
+    assert tuple(entry.entry_id for entry in context.clues) == ("action:1:hero",)

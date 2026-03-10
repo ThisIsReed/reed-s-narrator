@@ -85,6 +85,7 @@ def test_database_initialize_creates_wp04_tables(tmp_path) -> None:
         "events",
         "facts",
         "schema_migrations",
+        "tick_audit",
         "world_snapshots",
     }.issubset(table_names)
 

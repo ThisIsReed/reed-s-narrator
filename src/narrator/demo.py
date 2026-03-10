@@ -106,13 +106,17 @@ async def _simulation_section_lines(db_path: Path) -> tuple[str, ...]:
 
 def _tick_lines(result) -> tuple[str, ...]:
     checkpoint_flag = "yes" if result.checkpoint_saved else "no"
+    stage_chain = " -> ".join(stage.stage for stage in result.stages)
     return (
         (
             f"- tick {result.tick}: granularity={result.world.granularity.value}, "
-            f"checkpoint={checkpoint_flag}, events={','.join(result.event_ids) or '-'}"
+            f"checkpoint={checkpoint_flag}, day={result.world.phenology.day_of_year}, "
+            f"events={','.join(result.event_ids) or '-'}"
         ),
         f"  spotlight: {_spotlight_summary(result)}",
         f"  action: {_action_summary(result)} | reason={result.granularity_reason}",
+        f"  stages: {stage_chain}",
+        f"  pending diffusion: {len(result.world.pending_propagation)}",
     )
 
 

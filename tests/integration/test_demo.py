@@ -15,4 +15,5 @@ def test_demo_cli_outputs_current_highlights(tmp_path, capsys) -> None:
     assert "主循环 / checkpoint / replay" in output
     assert "checkpoint 2 vs snapshot 2: no differences" in output
     assert "actor contexts seen by active characters" in output
+    assert "clock -> phenology -> event_pool" in output
     assert db_path.exists()

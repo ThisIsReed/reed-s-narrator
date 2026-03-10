@@ -15,6 +15,7 @@ from narrator.persistence.repositories import (
     FactRepository,
     WorldSnapshotRepository,
 )
+from narrator.persistence.tick_audit import TickAuditRepository
 
 __all__ = [
     "ActionLogRepository",
@@ -27,5 +28,6 @@ __all__ = [
     "FactRecord",
     "FactRepository",
     "SQLiteDatabase",
+    "TickAuditRepository",
     "WorldSnapshotRepository",
 ]

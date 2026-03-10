@@ -46,7 +46,15 @@ class AuditingRetryRuntime:
 
     async def execute(self, character, context, settlement_factory) -> RetryOutcome:
         self.call_count += 1
-        assert visible_fact_ids(context) == expected_fact_ids(character)
+        fact_ids = set(visible_fact_ids(context))
+        baseline = set(expected_fact_ids(character, context.tick))
+        unexpected = {
+            fact_id
+            for fact_id in fact_ids
+            if fact_id not in baseline and not fact_id.startswith("event:incident-")
+        }
+        assert baseline.issubset(fact_ids)
+        assert unexpected == set()
         settlement = settlement_factory(build_intent(character.id))
         action_key = f"{character.id}_actions"
         event_id = f"incident-{settlement.tick}"
@@ -221,12 +229,14 @@ def visible_fact_ids(context) -> tuple[str, ...]:
     return tuple(entry.entry_id for entry in context.facts)
 
 
-def expected_fact_ids(character: Character) -> tuple[str, ...]:
+def expected_fact_ids(character: Character, tick: int) -> tuple[str, ...]:
     fact_ids = ["global-news"]
     if character.location_id == "harbor":
         fact_ids.append("harbor-order")
     if character.id == "c0":
         fact_ids.append("private-c0")
+    if tick % ACTIVE_EVENT_INTERVAL == 0:
+        fact_ids.append(f"event:incident-{tick}")
     return tuple(sorted(fact_ids))
 
 

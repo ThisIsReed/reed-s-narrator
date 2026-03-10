@@ -102,6 +102,25 @@
   - `pytest tests/unit -q` 通过（`79 passed`）。
   - `pytest tests/integration -q` 通过（`6 passed`）。
 
+### WP-10 集成测试与回放工具
+- 实现回放核心模块 [`src/narrator/replay.py`](../src/narrator/replay.py) 与脚本入口 [`scripts/replay.py`](../scripts/replay.py)：
+  - 支持从 SQLite 数据库读取 `checkpoint` / `snapshot`；
+  - 提供 `list`、`show`、`diff` 三个显式命令，用于列出可回放 tick、查看状态摘要、对比两个存档状态差异；
+  - 对缺失数据库、缺失 tick 保持显式失败，不做静默降级。
+- 扩展回放所需仓储查询能力：
+  - [`src/narrator/persistence/checkpoint.py`](../src/narrator/persistence/checkpoint.py) 新增 `CheckpointRepository.list_ticks()`；
+  - [`src/narrator/persistence/repositories.py`](../src/narrator/persistence/repositories.py) 新增 `WorldSnapshotRepository.list_ticks()`。
+- 新增 WP-10 集成测试 [`tests/integration/test_replay_tool.py`](../tests/integration/test_replay_tool.py)：
+  - 覆盖 `scripts/replay.py` 的 `list/diff` CLI 冒烟验证；
+  - 覆盖 `1000 tick` 长程主循环运行，无时间线撕裂；
+  - 覆盖从 `tick=500` checkpoint 恢复后继续推进，与连续运行终态完全一致；
+  - 在长程运行中对角色上下文做显式断言，确认信息隔离未泄露；
+  - 显式验证平均每 tick 调用数占角色总数比例低于 `40%`。
+- 验证结果：
+  - `pytest tests/integration/test_replay_tool.py -q` 通过（`2 passed`）。
+  - `pytest tests/integration -q` 通过（`8 passed`）。
+  - `pytest tests/unit -q` 通过（`79 passed`）。
+
 ## 2026-02-27
 
 ### WP-01 项目基线与配置体系

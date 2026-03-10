@@ -83,6 +83,12 @@ class CheckpointRepository:
             rng_state=_load_rng_state(row["rng_state"]),
         )
 
+    def list_ticks(self) -> tuple[int, ...]:
+        rows = self._connection.execute(
+            "SELECT tick FROM checkpoints ORDER BY tick"
+        ).fetchall()
+        return tuple(int(row["tick"]) for row in rows)
+
 
 class CheckpointManager:
     def __init__(self, repository: CheckpointRepository, interval: int) -> None:

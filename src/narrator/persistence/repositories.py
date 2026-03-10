@@ -60,6 +60,12 @@ class WorldSnapshotRepository:
             raise LookupError(f"world snapshot not found for tick {tick}")
         return WorldState.model_validate(_load_json(row["state_json"]))
 
+    def list_ticks(self) -> tuple[int, ...]:
+        rows = self._connection.execute(
+            "SELECT tick FROM world_snapshots ORDER BY tick"
+        ).fetchall()
+        return tuple(int(row["tick"]) for row in rows)
+
 
 class EventRepository:
     def __init__(self, connection: sqlite3.Connection) -> None:

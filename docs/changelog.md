@@ -72,6 +72,36 @@
   - `pytest tests/unit -q` 通过（`76 passed`）。
   - `pytest tests/integration -q` 通过（`5 passed`）。
 
+### WP-09 Orchestrator 主循环组装层
+- 实现事件池组装 [`src/narrator/orchestrator/event_pool.py`](../src/narrator/orchestrator/event_pool.py)：
+  - 新增 `EventGenerator` 抽象接口，支持扩展事件来源；
+  - 新增 `EventPool` 与 `EventPoolSnapshot`，合并未解决事件与当 tick 新事件；
+  - 对重复事件 id 显式失败，避免静默覆盖。
+- 实现粒度决策 [`src/narrator/orchestrator/granularity.py`](../src/narrator/orchestrator/granularity.py)：
+  - 新增 `GranularityPlanner` / `GranularityDecision`；
+  - 支持通过事件 tag `granularity:*` 驱动 `YEAR/MONTH/DAY/INSTANT` 切换；
+  - 显式执行 `instant_mode_max_rounds` 上限，超限回落到 `DAY`。
+- 实现三态聚光灯 [`src/narrator/orchestrator/spotlight.py`](../src/narrator/orchestrator/spotlight.py)：
+  - 新增 `SpotlightDirector`、`SpotlightAssignments`、`SpotlightEntry`；
+  - 按 `geo/relation/availability/narrative_importance/random_noise` 加权计算激活分；
+  - 对“直接命中角色事件”强制 `ACTIVE`，对“同地点事件”强制 `PASSIVE`；
+  - 输出稳定排序与审计理由，落实 `ACTIVE/PASSIVE/DORMANT` 三态执行。
+- 实现主循环控制器 [`src/narrator/orchestrator/narrator_ctrl.py`](../src/narrator/orchestrator/narrator_ctrl.py)：
+  - 新增 `NarratorController` / `TickResult`，组装 `GlobalClock -> EventPool -> Granularity -> Spotlight -> ACTIVE Agent 链 -> PASSIVE 更新 -> Snapshot/Checkpoint`；
+  - ACTIVE 角色通过已存在的 `RetryCoordinator` 风格接口执行，并写入 `action_log`；
+  - 将 `ActionResult.state_changes` 投影回 `WorldState`，显式失败于非法路径；
+  - 将角色 `state_mode` 与 `last_active_tick` 写回世界状态。
+- 完成模块导出 [`src/narrator/orchestrator/__init__.py`](../src/narrator/orchestrator/__init__.py)。
+- 新增测试：
+  - [`tests/unit/orchestrator/test_granularity.py`](../tests/unit/orchestrator/test_granularity.py)：覆盖事件驱动即时粒度切换与即时模式回落。
+  - [`tests/unit/orchestrator/test_spotlight.py`](../tests/unit/orchestrator/test_spotlight.py)：覆盖 `ACTIVE/PASSIVE/DORMANT` 三态分层。
+  - [`tests/integration/test_main_loop.py`](../tests/integration/test_main_loop.py)：新增主循环集成测试，覆盖 `事件池 -> ACTIVE -> PASSIVE -> 持久化/checkpoint` 顺序、粒度切换、状态写回与日志落库。
+- 验证结果：
+  - `pytest tests/unit/orchestrator -q` 通过（`3 passed`）。
+  - `pytest tests/integration/test_main_loop.py -q` 通过（`2 passed`）。
+  - `pytest tests/unit -q` 通过（`79 passed`）。
+  - `pytest tests/integration -q` 通过（`6 passed`）。
+
 ## 2026-02-27
 
 ### WP-01 项目基线与配置体系

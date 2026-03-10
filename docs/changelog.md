@@ -91,6 +91,36 @@
   - `pytest tests/unit -q` 通过（`59 passed`）。
 - 说明：按本轮范围决策，`GlobalClock` 暂不提供 `tick -> datetime` 映射，仅负责 tick 管理。
 
+### WP-04 持久化与可恢复能力
+- 新增 SQLite 初始化与迁移执行器 [`src/narrator/persistence/database.py`](../src/narrator/persistence/database.py)：
+  - 自动创建 `schema_migrations`；
+  - 按文件名顺序执行 `migrations/*.sql`；
+  - 空迁移脚本显式报错，不做静默跳过。
+- 新增初始化迁移 [`src/narrator/persistence/migrations/001_init.sql`](../src/narrator/persistence/migrations/001_init.sql)，落地：
+  - `world_snapshots`
+  - `events`
+  - `facts`
+  - `beliefs`
+  - `action_log`
+  - `checkpoints`
+- 新增仓储层 [`src/narrator/persistence/repositories.py`](../src/narrator/persistence/repositories.py)：
+  - `WorldSnapshotRepository` 保存/读取完整世界快照；
+  - `EventRepository` 按 tick 持久化与查询事件；
+  - `FactRepository` / `BeliefRepository` 持久化客观事实与角色主观认知；
+  - `ActionLogRepository` 记录 `verdict`、`retry_count`、`is_fallback`、`fallback_reason` 等关键审计字段。
+- 新增 checkpoint 能力 [`src/narrator/persistence/checkpoint.py`](../src/narrator/persistence/checkpoint.py)：
+  - `CheckpointRepository` 保存/恢复压缩后的 `WorldState` 与 RNG 状态；
+  - `CheckpointManager` 基于固定间隔触发存档；
+  - 恢复失败显式抛出 `LookupError`。
+- 完成模块导出 [`src/narrator/persistence/__init__.py`](../src/narrator/persistence/__init__.py)。
+- 新增测试：
+  - [`tests/unit/persistence/test_repositories.py`](../tests/unit/persistence/test_repositories.py)：覆盖迁移建表、仓储 round-trip、checkpoint RNG 恢复；
+  - [`tests/integration/test_replay.py`](../tests/integration/test_replay.py)：覆盖从 checkpoint 恢复后继续推进，结果与直接连续推进一致；
+  - [`tests/integration/test_main_loop.py`](../tests/integration/test_main_loop.py)：覆盖 checkpoint 间隔触发行为。
+- 验证结果：
+  - `pytest tests/unit/persistence/test_repositories.py -q` 通过（`3 passed`）。
+  - `pytest tests/integration/test_replay.py tests/integration/test_main_loop.py -q` 通过（`2 passed`）。
+
 ### WP-06 LLM 抽象与多 Provider 路由
 - 新增 LLM Provider 抽象基类 [`src/narrator/llm/base.py`](../src/narrator/llm/base.py)：
   - `LLMProvider[T]` 泛型抽象基类（`async` 接口）；

@@ -23,6 +23,30 @@
   - `pytest tests/unit/phenology -q` 通过（`6 passed`）。
   - `pytest tests/unit -q` 通过（`65 passed`）。
 
+### WP-07 Knowledge & Diffusion 基础层
+- 实现客观事实存储 [`src/narrator/knowledge/fact_store.py`](../src/narrator/knowledge/fact_store.py)：
+  - 新增 `Fact`、`FactVisibility`、`FactStore`；
+  - 支持 `global` / `location` / `private` 三类可见性；
+  - 角色读取事实时按 `location_id` 与显式授权角色过滤，未授权事实不会进入角色上下文。
+- 实现角色主观认知存储 [`src/narrator/knowledge/belief_store.py`](../src/narrator/knowledge/belief_store.py)：
+  - 新增 `Belief`、`BeliefStore`；
+  - 区分 `direct` / `rumor` / `inference` 来源；
+  - 传闻/推断内容独立保存为摘要，不依赖泄露客观事实正文。
+- 实现上下文构建与基础传播接口 [`src/narrator/knowledge/propagation.py`](../src/narrator/knowledge/propagation.py)：
+  - 新增 `KnowledgeAssembler`，构建 `CharacterKnowledgeContext`；
+  - 角色上下文拆分为 `facts` 与 `clues`，仅注入授权事实与允许暴露的推断线索；
+  - 生成稳定 `audit_log`，保证同输入下上下文构建可复现、可审计；
+  - 新增 `PropagationTask` 与 `plan_diffusion()`，为阶段 B 的传播时延机制预留显式接口。
+- 完成模块导出 [`src/narrator/knowledge/__init__.py`](../src/narrator/knowledge/__init__.py)。
+- 新增测试：
+  - [`tests/unit/knowledge/test_stores.py`](../tests/unit/knowledge/test_stores.py)：覆盖可见性校验、作用域过滤、去重规则、传播延迟非法值显式失败。
+  - [`tests/integration/test_isolation.py`](../tests/integration/test_isolation.py)：覆盖信息隔离与上下文构建可复现/可审计。
+- 验证结果：
+  - `pytest tests/unit/knowledge/test_stores.py -q` 通过（`4 passed`）。
+  - `pytest tests/integration/test_isolation.py -q` 通过（`2 passed`）。
+  - `pytest tests/unit -q` 通过（`66 passed`）。
+  - `pytest tests/integration -q` 通过（`4 passed`）。
+
 ## 2026-02-27
 
 ### WP-01 项目基线与配置体系

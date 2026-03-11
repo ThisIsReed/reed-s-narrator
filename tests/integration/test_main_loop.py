@@ -165,7 +165,24 @@ async def test_narrator_controller_runs_main_loop_in_order(tmp_path) -> None:
     assert result.checkpoint_saved is True
     assert stored_actions == result.action_results
     assert stored_world == result.world
-    assert result.world.resources == {"hero_progress": 1.0, "guard_patrol": 1.0}
+    assert result.world.resources == {
+        "hero_progress": 1.0,
+        "guard_patrol": 1.0,
+        "unresolved_event_pressure": 1.0,
+    }
+    assert [stage.stage for stage in result.stages] == [
+        "clock",
+        "phenology",
+        "event_pool",
+        "granularity",
+        "knowledge_update",
+        "spotlight",
+        "active_agent",
+        "passive_execution",
+        "world_rules",
+        "persistence",
+        "replay_audit",
+    ]
 
 
 def _build_spotlight_config() -> SpotlightConfig:

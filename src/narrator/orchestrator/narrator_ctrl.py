@@ -7,6 +7,7 @@ from typing import Protocol
 
 from narrator.agents import RetryOutcome, SettlementContext
 from narrator.agents.intent import IntentPayload
+from narrator.core import RuleEngine, build_default_rule_engine
 from narrator.core.clock import GlobalClock
 from narrator.knowledge import CharacterKnowledgeContext, KnowledgeAssembler, KnowledgeMutation
 from narrator.models import ActionResult, Character, WorldState
@@ -26,6 +27,7 @@ from narrator.orchestrator.tick_helpers import (
     apply_action_result,
     apply_phenology_stage,
     apply_spotlight_assignments,
+    apply_world_rules_stage,
     collect_state_changes,
     event_stage,
     granularity_stage,
@@ -71,6 +73,7 @@ class NarratorController:
         belief_repository: BeliefRepository | None = None,
         tick_audit_repository: TickAuditRepository | None = None,
         passive_resolver: PassiveResolver | None = None,
+        rule_engine: RuleEngine | None = None,
         rng: Random | None = None,
     ) -> None:
         self._world = world
@@ -87,6 +90,7 @@ class NarratorController:
         self._belief_repository = belief_repository
         self._tick_audit_repository = tick_audit_repository
         self._passive_resolver = passive_resolver or _noop_passive_resolver
+        self._rule_engine = rule_engine or build_default_rule_engine()
         self._rng = rng or Random(world.seed)
         self._instant_rounds = 0
         self._knowledge_assembler.load_world_state(world)
@@ -126,6 +130,16 @@ class NarratorController:
         stages.append(active_stage)
         world = self._run_passive_characters(world, assignments, tick)
         stages.append(passive_stage(assignments))
+        world, world_rules_stage = apply_world_rules_stage(
+            world,
+            tick,
+            granularity,
+            event_snapshot,
+            assignments,
+            tuple(action_results),
+            self._rule_engine,
+        )
+        stages.append(world_rules_stage)
         self._world_repository.save(world)
         checkpoint_saved = self._checkpoint_manager.save_if_needed(
             tick,

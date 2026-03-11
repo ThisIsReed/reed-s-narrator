@@ -213,9 +213,13 @@ async def test_wp13_closed_loop_survives_checkpoint_replay(tmp_path) -> None:
         "knowledge_update",
         "spotlight",
         "active_agent",
-        "passive_update",
+        "passive_execution",
+        "world_rules",
         "persistence",
         "replay_audit",
     ]
+    world_rules_stage = tick_audit["stages"][8]
+    assert world_rules_stage["stage"] == "world_rules"
+    assert world_rules_stage["audit_log"][0].startswith("unresolved_event_pressure:")
     assert facts[0].fact_id == "event:alarm-1"
     assert beliefs[0].belief_id == "action:1:hero"

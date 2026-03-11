@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-03-11
+
+### WP-14 通用规则引擎接线与统一结算阶段
+- 在 [`src/narrator/orchestrator/narrator_ctrl.py`](../src/narrator/orchestrator/narrator_ctrl.py) 正式接入 `RuleEngine`：
+  - `NarratorController` 现显式接收 `rule_engine` 依赖；
+  - 未显式传入时默认装配内置通用规则引擎；
+  - 主循环阶段顺序更新为 `clock -> phenology -> event_pool -> granularity -> knowledge_update -> spotlight -> active_agent -> passive_execution -> world_rules -> persistence -> replay_audit`。
+- 扩展 [`src/narrator/orchestrator/tick_helpers.py`](../src/narrator/orchestrator/tick_helpers.py)：
+  - 新增 `apply_world_rules_stage()`，为 `world_rules` 阶段构建正式 `RuleContext`；
+  - 统一从 `tick`、`seed`、粒度、事件摘要、角色分层结果、主动行动摘要生成规则上下文；
+  - 新增通用 `apply_state_changes()`，让规则阶段与 ACTIVE 结算共用同一状态投影路径；
+  - 将 PASSIVE 阶段审计名从 `passive_update` 统一为 `passive_execution`。
+- 新增内置非物候规则模块 [`src/narrator/core/world_rules.py`](../src/narrator/core/world_rules.py)：
+  - 实现 `UnresolvedEventPressureRule`；
+  - 将未解决事件数确定性投影到 `resources.unresolved_event_pressure`；
+  - 提供 `build_default_rule_engine()` 作为控制器默认装配入口。
+- 更新 [`src/narrator/core/__init__.py`](../src/narrator/core/__init__.py)，导出 WP-14 新增的规则样例与默认规则引擎构建器。
+- 新增/更新测试：
+  - [`tests/unit/orchestrator/test_world_rules_stage.py`](../tests/unit/orchestrator/test_world_rules_stage.py)：覆盖规则阶段状态投影、稳定审计输出、空变更阶段保留与规则确定性。
+  - [`tests/integration/test_main_loop.py`](../tests/integration/test_main_loop.py)：显式断言 `world_rules` 已进入主循环，且位于 `passive_execution` 与 `persistence` 之间。
+  - [`tests/integration/test_wp13_closed_loop.py`](../tests/integration/test_wp13_closed_loop.py)：显式校验 `tick_audit` 中已包含 `world_rules` 阶段及其规则审计记录。
+- 验证结果：
+  - `pytest tests/unit/orchestrator/test_world_rules_stage.py tests/unit/core/test_rule_engine.py -q` 通过（`6 passed`）。
+  - `pytest tests/integration/test_main_loop.py tests/integration/test_wp13_closed_loop.py -q` 通过（`3 passed`）。
+  - `pytest tests/unit -q` 通过（`90 passed`）。
+  - `pytest tests/integration -q` 通过（`14 passed`）。
+
 ## 2026-03-10
 
 ### WP-05 物候系统（硬约束）

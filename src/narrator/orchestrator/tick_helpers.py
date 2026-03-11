@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from narrator.core import RuleContext, RuleEngine, RuleExecutionRecord
 from narrator.knowledge import CharacterKnowledgeContext, KnowledgeMutation
 from narrator.models import ActionResult, Character, StateChange, WorldState
 from narrator.orchestrator.event_pool import EventPoolSnapshot
@@ -59,10 +60,14 @@ def update_character_state(character: Character, mode, tick: int) -> Character:
 
 
 def apply_action_result(world: WorldState, result: ActionResult) -> WorldState:
-    if not result.state_changes:
+    return apply_state_changes(world, result.state_changes)
+
+
+def apply_state_changes(world: WorldState, state_changes: tuple[StateChange, ...]) -> WorldState:
+    if not state_changes:
         return world
     payload = world.model_dump(mode="json")
-    for change in result.state_changes:
+    for change in state_changes:
         assign_path(payload, change.path.split("."), change.after)
     return WorldState.model_validate(payload)
 
@@ -122,12 +127,43 @@ def spotlight_stage(assignments: SpotlightAssignments) -> TickStageResult:
 
 def passive_stage(assignments: SpotlightAssignments) -> TickStageResult:
     return stage(
-        "passive_update",
+        "passive_execution",
         audit_log=(
             f"passive={','.join(assignments.passive_ids) or '-'}",
             f"dormant={','.join(assignments.dormant_ids) or '-'}",
         ),
         artifact_ids=(*assignments.passive_ids, *assignments.dormant_ids),
+    )
+
+
+def apply_world_rules_stage(
+    world: WorldState,
+    tick: int,
+    granularity: GranularityDecision,
+    event_snapshot: EventPoolSnapshot,
+    assignments: SpotlightAssignments,
+    action_results: tuple[ActionResult, ...],
+    rule_engine: RuleEngine,
+) -> tuple[WorldState, TickStageResult]:
+    context = RuleContext(
+        tick=tick,
+        seed=world.seed,
+        metadata={
+            "granularity": granularity.granularity.value,
+            "event_ids": tuple(event.id for event in event_snapshot.active_events),
+            "active_ids": assignments.active_ids,
+            "passive_ids": assignments.passive_ids,
+            "dormant_ids": assignments.dormant_ids,
+            "action_results": action_result_summaries(action_results),
+        },
+    )
+    result = rule_engine.settle(world, context)
+    updated_world = apply_state_changes(world, result.state_changes)
+    return updated_world, stage(
+        "world_rules",
+        audit_log=rule_audit_entries(result.audit_log),
+        state_changes=result.state_changes,
+        artifact_ids=tuple(record.rule_name for record in result.audit_log),
     )
 
 
@@ -166,6 +202,19 @@ def collect_state_changes(results: list[ActionResult]) -> tuple[StateChange, ...
     return tuple(changes)
 
 
+def action_result_summaries(results: tuple[ActionResult, ...]) -> tuple[dict[str, object], ...]:
+    return tuple(
+        {
+            "character_id": result.action.character_id,
+            "action_type": result.action.action_type,
+            "verdict": result.verdict.value,
+            "state_change_count": len(result.state_changes),
+            "source_event_id": result.action.source_event_id,
+        }
+        for result in results
+    )
+
+
 def knowledge_artifact_ids(
     event_mutation: KnowledgeMutation,
     diffusion_mutation: KnowledgeMutation,
@@ -178,6 +227,13 @@ def knowledge_artifact_ids(
 
 
 def phenology_audit_entries(audit_log) -> tuple[str, ...]:
+    return tuple(
+        f"{entry.rule_name}:{'matched' if entry.matched else 'skipped'}:{entry.state_change_count}"
+        for entry in audit_log
+    )
+
+
+def rule_audit_entries(audit_log: tuple[RuleExecutionRecord, ...]) -> tuple[str, ...]:
     return tuple(
         f"{entry.rule_name}:{'matched' if entry.matched else 'skipped'}:{entry.state_change_count}"
         for entry in audit_log

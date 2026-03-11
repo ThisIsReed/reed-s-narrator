@@ -20,7 +20,8 @@ narrator-demo
 
 - 物候系统对世界状态的硬约束
 - 信息隔离与线索脱敏
-- 事件驱动的粒度切换与聚光灯分层
+- 事件驱动的粒度切换、聚光灯分层与行动时间线
+- 认知生成、谣言扩散与 tick audit 持久化
 - SQLite snapshot / checkpoint / replay 检查能力
 
 如需保留 demo 生成的 SQLite 文件：

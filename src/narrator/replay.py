@@ -109,16 +109,22 @@ def _diff_command(
 
 def list_ticks(db_path: Path, source: ReplaySource) -> tuple[int, ...]:
     database = _open_database(db_path)
-    with database.connect() as connection:
+    connection = database.connect()
+    try:
         if source == "checkpoint":
             return CheckpointRepository(connection).list_ticks()
         return WorldSnapshotRepository(connection).list_ticks()
+    finally:
+        connection.close()
 
 
 def load_record(db_path: Path, source: ReplaySource, tick: int) -> ReplayRecord:
     database = _open_database(db_path)
-    with database.connect() as connection:
+    connection = database.connect()
+    try:
         world = _load_world(connection, source, tick)
+    finally:
+        connection.close()
     return ReplayRecord(source=source, tick=tick, world=world)
 
 

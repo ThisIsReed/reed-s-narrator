@@ -10,11 +10,13 @@ from typing import Any, Sequence
 
 from narrator.demo_support import (
     build_character,
+    build_demo_world,
     build_isolation_assembler,
     build_phenology_world,
     run_demo_simulation,
 )
 from narrator.models import StateChange
+from narrator.narrative import NarrativeAssembler, render_rule_entry
 from narrator.phenology import apply_phenology
 from narrator.replay import diff_records, list_ticks, load_record
 
@@ -46,8 +48,12 @@ def _run_with_temporary_db() -> tuple[str, ...]:
 
 async def run_demo(db_path: Path) -> tuple[str, ...]:
     artifacts = await run_demo_simulation(db_path)
+    narrative_assembler = NarrativeAssembler(db_path)
     return (
         "Reed's Narrator Demo",
+        "",
+        "0. 演示场景概览",
+        *_overview_section_lines(db_path, artifacts),
         "",
         "1. 物候硬约束",
         *_phenology_section_lines(),
@@ -58,8 +64,41 @@ async def run_demo(db_path: Path) -> tuple[str, ...]:
         "3. 时间线驱动的主循环演示",
         *_timeline_section_lines(artifacts),
         "",
-        "4. Replay / 持久化证据",
+        "4. Narrative Beat 回放",
+        *_narrative_section_lines(narrative_assembler),
+        "",
+        "5. Replay / 持久化证据",
         *_persistence_section_lines(db_path, artifacts),
+        "",
+        "6. 最终世界状态",
+        *_final_state_section_lines(artifacts),
+    )
+
+
+def _overview_section_lines(db_path: Path, artifacts) -> tuple[str, ...]:
+    world = build_demo_world()
+    cast = "; ".join(
+        f"{character.id}@{character.location_id}/importance={character.narrative_importance}"
+        for character in sorted(
+            world.characters.values(),
+            key=lambda character: (-character.narrative_importance, character.id),
+        )
+    )
+    final_world = artifacts.results[-1].world
+    incidents = []
+    for result in artifacts.results:
+        if not result.event_ids:
+            continue
+        event_id = result.event_ids[0]
+        event = final_world.events[event_id]
+        target = event.impact_scope.get("target_character_id", "-")
+        location = event.impact_scope.get("location_id", "-")
+        incidents.append(f"tick {result.tick}:{event_id}->{target}@{location}")
+    return (
+        f"- database={db_path}",
+        f"- total_ticks={len(artifacts.results)} | checkpoints every 2 ticks | seed={world.seed}",
+        f"- cast: {cast}",
+        f"- scripted incidents: {' | '.join(incidents) if incidents else '-'}",
     )
 
 
@@ -109,12 +148,54 @@ def _persistence_section_lines(db_path: Path, artifacts) -> tuple[str, ...]:
     )
 
 
+def _narrative_section_lines(assembler: NarrativeAssembler) -> tuple[str, ...]:
+    lines = []
+    for tick in assembler.ticks:
+        beat = assembler.build_beat(tick)
+        entry = render_rule_entry(beat)
+        characters = ",".join(beat.mentioned_character_ids) or "-"
+        events = ",".join(beat.mentioned_event_ids) or "-"
+        lines.extend(
+            (
+                f"- {beat.title} [{beat.priority}] mentions=characters={characters}; events={events}",
+                f"  {entry.summary_text}",
+            )
+        )
+    return tuple(lines)
+
+
+def _final_state_section_lines(artifacts) -> tuple[str, ...]:
+    world = artifacts.results[-1].world
+    resolved = sorted(event_id for event_id, event in world.events.items() if event.resolved)
+    unresolved = sorted(event_id for event_id, event in world.events.items() if not event.resolved)
+    action_counters = ", ".join(
+        f"{key}={world.resources[key]}"
+        for key in sorted(world.resources)
+        if key.endswith("_actions")
+    ) or "-"
+    character_states = "; ".join(
+        f"{character.id}:{character.state_mode.value}@{character.location_id}/last_active={character.last_active_tick}"
+        for character in sorted(world.characters.values(), key=lambda item: item.id)
+    )
+    belief_coverage = ", ".join(
+        f"{character_id}={len(world.beliefs.get(character_id, ()))}"
+        for character_id in sorted(world.characters)
+    )
+    return (
+        f"- resolved events: {','.join(resolved) or '-'} | unresolved events: {','.join(unresolved) or '-'}",
+        f"- action counters: {action_counters}",
+        f"- character states: {character_states}",
+        f"- belief coverage: {belief_coverage}",
+    )
+
+
 def _tick_lines(result, previous_world, context_map: dict[int, tuple[str, ...]]) -> tuple[str, ...]:
     event_label = ",".join(result.event_ids) or "-"
     return (
         f"- tick {result.tick}: day={result.world.phenology.day_of_year}, granularity={result.world.granularity.value}, checkpoint={_yes_no(result.checkpoint_saved)}, events={event_label}",
         f"  spotlight: {_spotlight_summary(result)}",
         f"  action: {_action_summary(result)} | reason={result.granularity_reason}",
+        f"  flavor: {_flavor_summary(result)}",
         f"  knowledge: {_knowledge_delta_line(result.world, previous_world)}",
         f"  active contexts: {_context_preview(context_map.get(result.tick, ()))}",
         f"  audit: {_tick_audit_line(result)}",
@@ -146,6 +227,13 @@ def _action_summary(result) -> str:
         return "no active actions"
     action = result.action_results[0]
     return f"{action.action.character_id}:{action.action.action_type}:{action.verdict.value}"
+
+
+def _flavor_summary(result) -> str:
+    if not result.action_results:
+        return "-"
+    action = result.action_results[0]
+    return action.flavor_text or "-"
 
 
 def _knowledge_delta_line(world, previous_world) -> str:

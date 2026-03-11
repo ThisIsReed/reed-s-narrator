@@ -16,6 +16,7 @@ from .schemas import (
     DecisionResponse,
     HealthCheckResponse,
     IntentResponse,
+    NarrativeSummaryResponse,
     StructuredResponse,
     validate_structured_response,
 )
@@ -39,6 +40,7 @@ __all__ = [
     # Schemas
     "StructuredResponse",
     "IntentResponse",
+    "NarrativeSummaryResponse",
     "DecisionResponse",
     "HealthCheckResponse",
     "validate_structured_response",

@@ -48,6 +48,23 @@ class HealthCheckResponse(BaseModel):
     message: str = Field(default="", description="Optional status message")
 
 
+class NarrativeSummaryResponse(BaseModel):
+    """Schema for polished turn-summary responses."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    title: str = Field(..., description="Turn summary title")
+    summary_text: str = Field(..., description="Short omniscient turn summary")
+    mentioned_character_ids: list[str] = Field(
+        default_factory=list,
+        description="Character ids explicitly mentioned in the summary",
+    )
+    mentioned_event_ids: list[str] = Field(
+        default_factory=list,
+        description="Event ids explicitly mentioned in the summary",
+    )
+
+
 def validate_structured_response(
     response_data: dict[str, Any], response_type: type[BaseModel]
 ) -> tuple[bool, BaseModel | None, str]:

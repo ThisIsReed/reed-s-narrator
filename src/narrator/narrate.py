@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 from pathlib import Path
 from typing import Sequence
 
@@ -17,6 +18,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     ticks = _resolve_ticks(args)
     assembler = NarrativeAssembler(args.db, args.source)
     report = asyncio.run(_build_report(assembler, ticks, args))
+    if args.json:
+        print(_report_json(report, args))
+        return 0
     for index, entry in enumerate(report.entries):
         if index:
             print()
@@ -36,6 +40,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", default="config/default.yaml", help="Config path for LLM mode")
     parser.add_argument("--env-file", default=".env", help="Env file path for LLM mode")
     parser.add_argument("--provider", help="Optional provider override")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     return parser
 
 
@@ -75,3 +80,15 @@ def _validate_requested_ticks(
         joined = ",".join(str(tick) for tick in missing)
         raise LookupError(f"ticks not found for source {assembler.source}: {joined}")
     return requested_ticks
+
+
+def _report_json(report: NarrativeReport, args) -> str:
+    payload = {
+        "command": "narrate",
+        "db": str(Path(args.db)),
+        "source": report.source,
+        "ticks": list(report.ticks),
+        "rules_only": args.rules_only,
+        "entries": [entry.model_dump(mode="json") for entry in report.entries],
+    }
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True)

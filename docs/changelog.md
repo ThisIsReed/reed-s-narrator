@@ -1,5 +1,34 @@
 # Changelog
 
+## 2026-04-01
+
+### CLI MVP 收口
+- 新增统一 CLI 入口 [`src/narrator/main.py`](../src/narrator/main.py)：
+  - 正式收敛 `run / replay / narrate / inspect` 四类子命令；
+  - `run` 支持 `--db / --max-ticks / --checkpoint-interval / --config / --env-file`；
+  - `inspect` 新增 `ticks` 与 `audit` 两类只读查询入口。
+- 新增正式 runtime 装配 [`src/narrator/runtime.py`](../src/narrator/runtime.py)：
+  - 将正式 `run` 与 demo 场景装配分离；
+  - 接入主循环、snapshot、checkpoint、facts、beliefs、tick audit 持久化；
+  - 使用确定性 runtime 事件与执行链路产出可 replay / narrate 的运行结果。
+- 更新 [`src/narrator/replay.py`](../src/narrator/replay.py) 与 [`src/narrator/narrate.py`](../src/narrator/narrate.py)：
+  - `run / replay / narrate` 均支持 `--json`；
+  - replay 的 `list/show/diff` 输出具备稳定 JSON 契约；
+  - narrate 的报告输出可直接供前端消费。
+- 更新 CLI 包装：
+  - [`scripts/run.py`](../scripts/run.py) 改为统一 CLI 脚本包装；
+  - [`pyproject.toml`](../pyproject.toml) 新增 `narrator` 与 `narrator-replay` console scripts。
+- 新增正式 CLI 集成测试 [`tests/integration/test_cli_mvp.py`](../tests/integration/test_cli_mvp.py)：
+  - 覆盖 `run -> replay -> narrate -> inspect` 的 JSON 端到端链路。
+- 新增前端读模型边界文档 [`frontend-read-model.md`](./frontend-read-model.md)：
+  - 明确第一期前端只依赖“运行列表、tick 列表、tick 审计、叙事摘要”四类数据。
+- 验证结果：
+  - `pytest tests/integration/test_cli_mvp.py -q` 通过（`1 passed`）。
+  - `pytest tests/integration/test_replay_tool.py -q` 通过（`2 passed`）。
+  - `pytest tests/integration/test_narrate_cli.py -q` 通过（`3 passed`）。
+  - `pytest tests/integration/test_demo.py -q` 通过（`2 passed`）。
+  - `pytest tests/unit -q` 通过（`94 passed`）。
+
 ## 2026-03-11
 
 ### WP-14 通用规则引擎接线与统一结算阶段

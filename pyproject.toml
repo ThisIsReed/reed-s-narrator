@@ -23,9 +23,10 @@ dev = [
 ]
 
 [project.scripts]
-narrator-run = "narrator.main:main"
+narrator = "narrator.main:main"
 narrator-demo = "narrator.demo:main"
 narrator-narrate = "narrator.narrate:main"
+narrator-replay = "narrator.replay:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -37,27 +37,28 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     if args.command == "list":
-        for line in _list_command(Path(args.db), args.source):
-            print(line)
+        payload = list_command_data(Path(args.db), args.source)
+        _emit_output(payload, _list_command(payload), args.json)
         return 0
     if args.command == "show":
-        for line in _show_command(Path(args.db), args.source, args.tick):
-            print(line)
+        payload = show_command_data(Path(args.db), args.source, args.tick)
+        _emit_output(payload, _show_command(payload), args.json)
         return 0
-    for line in _diff_command(
+    payload = diff_command_data(
         Path(args.db),
         args.left_source,
         args.left_tick,
         args.right_source,
         args.right_tick,
-    ):
-        print(line)
+    )
+    _emit_output(payload, _diff_command(payload), args.json)
     return 0
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Inspect replay checkpoints and snapshots.")
     parser.add_argument("--db", required=True, help="SQLite database path")
+    parser.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     subparsers = parser.add_subparsers(dest="command", required=True)
     list_parser = subparsers.add_parser("list", help="List ticks for a source")
     list_parser.add_argument("--source", choices=("checkpoint", "snapshot"), required=True)
@@ -72,39 +73,77 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _list_command(db_path: Path, source: ReplaySource) -> tuple[str, ...]:
+def list_command_data(db_path: Path, source: ReplaySource) -> dict[str, Any]:
     ticks = list_ticks(db_path, source)
+    return {
+        "command": "list",
+        "db": str(db_path),
+        "source": source,
+        "ticks": list(ticks),
+        "count": len(ticks),
+    }
+
+
+def _list_command(payload: dict[str, Any]) -> tuple[str, ...]:
+    ticks = tuple(payload["ticks"])
     summary = _format_preview(ticks)
-    return (f"{source} ticks ({len(ticks)}): {summary}",)
+    return (f"{payload['source']} ticks ({payload['count']}): {summary}",)
 
 
-def _show_command(db_path: Path, source: ReplaySource, tick: int) -> tuple[str, ...]:
+def show_command_data(db_path: Path, source: ReplaySource, tick: int) -> dict[str, Any]:
     summary = summarize_record(load_record(db_path, source, tick))
+    return {
+        "command": "show",
+        "db": str(db_path),
+        "source": summary.source,
+        "tick": summary.tick,
+        "granularity": summary.granularity,
+        "character_ids": list(summary.character_ids),
+        "event_ids": list(summary.event_ids),
+        "resource_keys": list(summary.resource_keys),
+        "flag_keys": list(summary.flag_keys),
+    }
+
+
+def _show_command(payload: dict[str, Any]) -> tuple[str, ...]:
     return (
-        f"source: {summary.source}",
-        f"tick: {summary.tick}",
-        f"granularity: {summary.granularity}",
-        f"characters ({len(summary.character_ids)}): {_format_preview(summary.character_ids)}",
-        f"events ({len(summary.event_ids)}): {_format_preview(summary.event_ids)}",
-        f"resources ({len(summary.resource_keys)}): {_format_preview(summary.resource_keys)}",
-        f"flags ({len(summary.flag_keys)}): {_format_preview(summary.flag_keys)}",
+        f"source: {payload['source']}",
+        f"tick: {payload['tick']}",
+        f"granularity: {payload['granularity']}",
+        f"characters ({len(payload['character_ids'])}): {_format_preview(payload['character_ids'])}",
+        f"events ({len(payload['event_ids'])}): {_format_preview(payload['event_ids'])}",
+        f"resources ({len(payload['resource_keys'])}): {_format_preview(payload['resource_keys'])}",
+        f"flags ({len(payload['flag_keys'])}): {_format_preview(payload['flag_keys'])}",
     )
 
 
-def _diff_command(
+def diff_command_data(
     db_path: Path,
     left_source: ReplaySource,
     left_tick: int,
     right_source: ReplaySource,
     right_tick: int,
-) -> tuple[str, ...]:
+) -> dict[str, Any]:
     left_record = load_record(db_path, left_source, left_tick)
     right_record = load_record(db_path, right_source, right_tick)
     diffs = diff_records(left_record, right_record)
-    header = f"diff {left_source}:{left_tick} -> {right_source}:{right_tick}"
-    if not diffs:
+    return {
+        "command": "diff",
+        "db": str(db_path),
+        "left": {"source": left_source, "tick": left_tick},
+        "right": {"source": right_source, "tick": right_tick},
+        "differences": list(diffs),
+    }
+
+
+def _diff_command(payload: dict[str, Any]) -> tuple[str, ...]:
+    left = payload["left"]
+    right = payload["right"]
+    header = f"diff {left['source']}:{left['tick']} -> {right['source']}:{right['tick']}"
+    differences = tuple(payload["differences"])
+    if not differences:
         return (header, "no differences")
-    return (header,) + diffs
+    return (header,) + differences
 
 
 def list_ticks(db_path: Path, source: ReplaySource) -> tuple[int, ...]:
@@ -154,9 +193,12 @@ def _open_database(db_path: Path) -> SQLiteDatabase:
 
 
 def _load_world(connection, source: ReplaySource, tick: int) -> WorldState:
-    if source == "checkpoint":
-        return CheckpointRepository(connection).load(tick).world_state
-    return WorldSnapshotRepository(connection).get(tick)
+    try:
+        if source == "checkpoint":
+            return CheckpointRepository(connection).load(tick).world_state
+        return WorldSnapshotRepository(connection).get(tick)
+    except LookupError as exc:
+        raise LookupError(f"{source} record not found for tick {tick}") from exc
 
 
 def _diff_values(left: object, right: object, path: tuple[str, ...]) -> list[str]:
@@ -206,6 +248,14 @@ def _path_label(path: tuple[str, ...]) -> str:
 
 def _dump_value(value: object) -> str:
     return json.dumps(value, ensure_ascii=True, sort_keys=True)
+
+
+def _emit_output(payload: dict[str, Any], lines: tuple[str, ...], as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+        return
+    for line in lines:
+        print(line)
 
 
 def _format_preview(items: Sequence[object]) -> str:

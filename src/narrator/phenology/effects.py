@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from narrator.core.rule_engine import RuleExecutionRecord
+from narrator.models import LongActionStatus, StateChange, WorldState
 from narrator.models.base import DomainModel
-from narrator.models import StateChange, WorldState
 from narrator.phenology.calendar import PhenologyCalendar, PhenologySnapshot
 from narrator.phenology.registry import PhenologyRegistry
 
@@ -26,7 +26,7 @@ class WinterMarchPenaltyRule:
 
     def match(self, world: WorldState, snapshot: PhenologySnapshot) -> bool:
         return snapshot.season == "winter" and any(
-            character.long_action == "march" for character in world.characters.values()
+            _is_marching(character.long_action) for character in world.characters.values()
         )
 
     def apply(self, world: WorldState, snapshot: PhenologySnapshot) -> tuple[StateChange, ...]:
@@ -114,4 +114,13 @@ def _apply_changes(
             "resources": resources,
             "phenology": snapshot.to_state(),
         }
+    )
+
+
+def _is_marching(long_action) -> bool:
+    if long_action is None:
+        return False
+    return (
+        long_action.action_type == "march"
+        and long_action.status is LongActionStatus.IN_PROGRESS
     )

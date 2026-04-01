@@ -20,3 +20,8 @@ class Verdict(str, Enum):
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
     FALLBACK = "FALLBACK"
+
+
+class LongActionStatus(str, Enum):
+    IN_PROGRESS = "IN_PROGRESS"
+    PAUSED = "PAUSED"

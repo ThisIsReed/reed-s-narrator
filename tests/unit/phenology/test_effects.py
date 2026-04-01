@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from narrator.models import Character, Granularity, StateMode, WorldState
+from narrator.models import Character, Granularity, LongActionState, StateMode, WorldState
 from narrator.phenology import apply_phenology
 
 
 def _build_world(
     *,
-    long_action: str | None = None,
+    long_action: LongActionState | None = None,
     poor_harvest: bool = False,
 ) -> WorldState:
     character = Character(
@@ -31,7 +31,12 @@ def _build_world(
 
 
 def test_winter_march_penalty_updates_numeric_state() -> None:
-    result = apply_phenology(_build_world(long_action="march"), tick=105)
+    result = apply_phenology(
+        _build_world(
+            long_action=LongActionState(action_type="march", started_tick=0, remaining_ticks=3)
+        ),
+        tick=105,
+    )
 
     assert result.world.resources["military_readiness"] == 85.0
     assert result.world.phenology.day_of_year == 105

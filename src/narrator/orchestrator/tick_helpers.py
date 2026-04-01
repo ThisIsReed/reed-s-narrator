@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from narrator.core import RuleContext, RuleEngine, RuleExecutionRecord
+from narrator.core import InterruptSignal, RuleContext, RuleEngine, RuleExecutionRecord
 from narrator.knowledge import CharacterKnowledgeContext, KnowledgeMutation
 from narrator.models import ActionResult, Character, StateChange, WorldState
 from narrator.orchestrator.event_pool import EventPoolSnapshot
@@ -107,6 +107,14 @@ def event_stage(event_snapshot: EventPoolSnapshot) -> TickStageResult:
     )
 
 
+def interrupt_stage(signals: tuple[InterruptSignal, ...]) -> TickStageResult:
+    return stage(
+        "interrupt_scan",
+        audit_log=interrupt_audit_entries(signals),
+        artifact_ids=tuple(signal.character_id for signal in signals),
+    )
+
+
 def granularity_stage(granularity: GranularityDecision) -> TickStageResult:
     return stage(
         "granularity",
@@ -143,6 +151,7 @@ def apply_world_rules_stage(
     event_snapshot: EventPoolSnapshot,
     assignments: SpotlightAssignments,
     action_results: tuple[ActionResult, ...],
+    interrupt_signals: tuple[InterruptSignal, ...],
     rule_engine: RuleEngine,
 ) -> tuple[WorldState, TickStageResult]:
     context = RuleContext(
@@ -155,6 +164,7 @@ def apply_world_rules_stage(
             "passive_ids": assignments.passive_ids,
             "dormant_ids": assignments.dormant_ids,
             "action_results": action_result_summaries(action_results),
+            "interrupt_signals": interrupt_signal_summaries(interrupt_signals),
         },
     )
     result = rule_engine.settle(world, context)
@@ -215,6 +225,20 @@ def action_result_summaries(results: tuple[ActionResult, ...]) -> tuple[dict[str
     )
 
 
+def interrupt_signal_summaries(
+    signals: tuple[InterruptSignal, ...],
+) -> tuple[dict[str, object], ...]:
+    return tuple(
+        {
+            "character_id": signal.character_id,
+            "reason": signal.reason,
+            "tick": signal.tick,
+            "metadata": signal.metadata,
+        }
+        for signal in signals
+    )
+
+
 def knowledge_artifact_ids(
     event_mutation: KnowledgeMutation,
     diffusion_mutation: KnowledgeMutation,
@@ -237,4 +261,13 @@ def rule_audit_entries(audit_log: tuple[RuleExecutionRecord, ...]) -> tuple[str,
     return tuple(
         f"{entry.rule_name}:{'matched' if entry.matched else 'skipped'}:{entry.state_change_count}"
         for entry in audit_log
+    )
+
+
+def interrupt_audit_entries(signals: tuple[InterruptSignal, ...]) -> tuple[str, ...]:
+    if not signals:
+        return ("signals=-",)
+    return tuple(
+        f"{signal.character_id}:{signal.reason}:{signal.metadata.get('event_id', '-')}"
+        for signal in signals
     )

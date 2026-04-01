@@ -8,7 +8,7 @@ from narrator.agents import RetryOutcome
 from narrator.agents.intent import IntentPayload
 from narrator.core.clock import GlobalClock
 from narrator.knowledge import BeliefStore, FactStore, KnowledgeAssembler
-from narrator.models import Character, Granularity, StateMode, WorldState
+from narrator.models import Character, Granularity, LongActionState, StateMode, WorldState
 from narrator.models import Action, ActionResult, Event, StateChange, Verdict
 from narrator.orchestrator import (
     EventGenerator,
@@ -122,7 +122,11 @@ async def test_narrator_controller_runs_main_loop_in_order(tmp_path) -> None:
                 state_mode=StateMode.DORMANT,
                 location_id="cave",
                 narrative_importance=0.0,
-                long_action="sleep",
+                long_action=LongActionState(
+                    action_type="sleep",
+                    started_tick=0,
+                    remaining_ticks=3,
+                ),
             ),
         },
     )
@@ -175,6 +179,7 @@ async def test_narrator_controller_runs_main_loop_in_order(tmp_path) -> None:
         "phenology",
         "event_pool",
         "granularity",
+        "interrupt_scan",
         "knowledge_update",
         "spotlight",
         "active_agent",
@@ -183,6 +188,8 @@ async def test_narrator_controller_runs_main_loop_in_order(tmp_path) -> None:
         "persistence",
         "replay_audit",
     ]
+    assert result.world.characters["sleeper"].long_action is not None
+    assert result.world.characters["sleeper"].long_action.remaining_ticks == 2
 
 
 def _build_spotlight_config() -> SpotlightConfig:

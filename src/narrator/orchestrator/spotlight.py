@@ -5,7 +5,7 @@ from __future__ import annotations
 from random import Random
 
 from narrator.config import SpotlightConfig
-from narrator.models import Character, Event, StateMode
+from narrator.models import Character, Event, LongActionStatus, StateMode
 from narrator.models.base import DomainModel
 
 MODE_PRIORITY = {
@@ -117,6 +117,8 @@ def _weighted_score(
 
 def _availability_score(character: Character) -> float:
     if character.long_action is None:
+        return BASE_AVAILABILITY_SCORE
+    if character.long_action.status is not LongActionStatus.IN_PROGRESS:
         return BASE_AVAILABILITY_SCORE
     return LONG_ACTION_AVAILABILITY_SCORE
 

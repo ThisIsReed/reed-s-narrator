@@ -7,7 +7,12 @@ from typing import Protocol
 
 from narrator.agents import RetryOutcome, SettlementContext
 from narrator.agents.intent import IntentPayload
-from narrator.core import RuleEngine, build_default_rule_engine
+from narrator.core import (
+    InterruptManager,
+    RuleEngine,
+    build_default_interrupt_manager,
+    build_default_rule_engine,
+)
 from narrator.core.clock import GlobalClock
 from narrator.knowledge import CharacterKnowledgeContext, KnowledgeAssembler, KnowledgeMutation
 from narrator.models import ActionResult, Character, WorldState
@@ -31,6 +36,7 @@ from narrator.orchestrator.tick_helpers import (
     collect_state_changes,
     event_stage,
     granularity_stage,
+    interrupt_stage,
     knowledge_artifact_ids,
     passive_stage,
     persistence_stage,
@@ -73,6 +79,7 @@ class NarratorController:
         belief_repository: BeliefRepository | None = None,
         tick_audit_repository: TickAuditRepository | None = None,
         passive_resolver: PassiveResolver | None = None,
+        interrupt_manager: InterruptManager | None = None,
         rule_engine: RuleEngine | None = None,
         rng: Random | None = None,
     ) -> None:
@@ -90,6 +97,7 @@ class NarratorController:
         self._belief_repository = belief_repository
         self._tick_audit_repository = tick_audit_repository
         self._passive_resolver = passive_resolver or _noop_passive_resolver
+        self._interrupt_manager = interrupt_manager or build_default_interrupt_manager()
         self._rule_engine = rule_engine or build_default_rule_engine()
         self._rng = rng or Random(world.seed)
         self._instant_rounds = 0
@@ -115,6 +123,8 @@ class NarratorController:
         )
         stages.append(granularity_stage(granularity))
         world = prepare_world(world, tick, event_snapshot, granularity)
+        interrupt_signals = self._interrupt_manager.check(world, tick)
+        stages.append(interrupt_stage(interrupt_signals))
         self._instant_rounds = granularity.instant_rounds
         world, knowledge_stage = self._apply_knowledge_stage(world, event_snapshot, tick)
         stages.append(knowledge_stage)
@@ -137,6 +147,7 @@ class NarratorController:
             event_snapshot,
             assignments,
             tuple(action_results),
+            interrupt_signals,
             self._rule_engine,
         )
         stages.append(world_rules_stage)

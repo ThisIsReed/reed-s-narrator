@@ -3,7 +3,7 @@ from __future__ import annotations
 from random import Random
 
 from narrator.config import SpotlightConfig, SpotlightWeights
-from narrator.models import Character, Event, StateMode
+from narrator.models import Character, Event, LongActionState, StateMode
 from narrator.orchestrator import SpotlightDirector
 
 
@@ -42,7 +42,11 @@ def test_spotlight_assigns_active_passive_and_dormant() -> None:
             state_mode=StateMode.DORMANT,
             location_id="cave",
             narrative_importance=0.0,
-            long_action="sleep",
+            long_action=LongActionState(
+                action_type="sleep",
+                started_tick=0,
+                remaining_ticks=3,
+            ),
         ),
     }
     events = (

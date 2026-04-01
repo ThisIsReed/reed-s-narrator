@@ -10,7 +10,7 @@ from narrator.config import SpotlightConfig, SpotlightWeights
 from narrator.core.clock import GlobalClock
 from narrator.demo_runtime import DemoEventGenerator, DemoEventPlan, DemoRetryRuntime
 from narrator.knowledge import Belief, BeliefStore, Fact, FactStore, FactVisibility, KnowledgeAssembler
-from narrator.models import Character, Granularity, StateMode, WorldState
+from narrator.models import Character, Granularity, LongActionState, StateMode, WorldState
 from narrator.orchestrator import EventPool, GranularityPlanner, NarratorController, SpotlightDirector, TickResult
 from narrator.persistence import (
     ActionLogRepository,
@@ -49,7 +49,11 @@ def build_phenology_world() -> WorldState:
                 name="Marshal",
                 state_mode=StateMode.PASSIVE,
                 location_id="frontier",
-                long_action="march",
+                long_action=LongActionState(
+                    action_type="march",
+                    started_tick=0,
+                    remaining_ticks=3,
+                ),
             )
         },
         resources={
@@ -155,7 +159,13 @@ def build_demo_world() -> WorldState:
             "captain": _character("captain", "Captain", "watchtower", 0.5),
             "merchant": _character("merchant", "Merchant", "market", 0.45),
             "clerk": _character("clerk", "Clerk", "market", 0.25),
-            "hermit": _character("hermit", "Hermit", "ruins", 0.1, "meditate"),
+            "hermit": _character(
+                "hermit",
+                "Hermit",
+                "ruins",
+                0.1,
+                LongActionState(action_type="meditate", started_tick=0, remaining_ticks=4),
+            ),
         },
     )
 
@@ -234,7 +244,7 @@ def _character(
     name: str,
     location_id: str,
     importance: float,
-    long_action: str | None = None,
+    long_action: LongActionState | None = None,
 ) -> Character:
     return Character(
         id=character_id,

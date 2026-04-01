@@ -6,6 +6,7 @@ from typing import Any, Protocol
 
 from pydantic import Field
 
+from narrator.models import LongActionStatus
 from narrator.models.base import DomainModel
 from narrator.models.world import WorldState
 
@@ -38,3 +39,39 @@ class InterruptManager:
         for rule in self._rules:
             signals.extend(rule.check(world, tick))
         return tuple(signals)
+
+
+class TargetedEventInterruptRule:
+    """Interrupt long actions when an unresolved targeted event appears."""
+
+    def check(self, world: WorldState, tick: int) -> tuple[InterruptSignal, ...]:
+        signals: list[InterruptSignal] = []
+        for event in sorted(world.events.values(), key=lambda item: (item.tick_created, item.id)):
+            if event.resolved:
+                continue
+            target_id = event.impact_scope.get("target_character_id")
+            if not isinstance(target_id, str):
+                continue
+            character = world.characters.get(target_id)
+            if character is None or character.long_action is None:
+                continue
+            if character.long_action.status is not LongActionStatus.IN_PROGRESS:
+                continue
+            signals.append(
+                InterruptSignal(
+                    character_id=target_id,
+                    reason="targeted_event_interrupt",
+                    tick=tick,
+                    metadata={
+                        "event_id": event.id,
+                        "action_type": character.long_action.action_type,
+                    },
+                )
+            )
+        return tuple(signals)
+
+
+def build_default_interrupt_manager() -> InterruptManager:
+    manager = InterruptManager()
+    manager.register(TargetedEventInterruptRule())
+    return manager
